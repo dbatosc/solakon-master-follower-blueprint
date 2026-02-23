@@ -1,11 +1,5 @@
 ⚡ Solakon Master–Follower Blueprint
 1–3 Solakon One Inverter · NT/HT Tariflogik · Phasenbasiert · SAFE MODE
-https://img.shields.io/badge/Home%20Assistant-Blueprint-41BDF5?style=for-the-badge
-https://img.shields.io/badge/Solakon-One-orange?style=for-the-badge
-https://img.shields.io/badge/Safety-First-green?style=for-the-badge
-https://img.shields.io/badge/Version-1.0.0-blue?style=for-the-badge
-https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge
-https://img.shields.io/badge/Status-Stable-brightgreen?style=for-the-badge
 
 📥 Blueprint direkt importieren
 Import Blueprint (my.home-assistant.io in Bing)
@@ -91,19 +85,19 @@ Notification in Home Assistant
 🏗 Architektur
 Code
                    ┌──────────────────────────────┐
-                   │        Shelly 3EM             │
-                   │  (Total + Phase Power)        │
+                   │        Shelly 3EM            │
+                   │  (Total + Phase Power)       │
                    └──────────────┬───────────────┘
                                   │
                                   ▼
                      ┌────────────────────────┐
-                     │   Blueprint Logic       │
+                     │   Blueprint Logic      │
                      │  - NT/HT               │
                      │  - SoC Window          │
                      │  - Phase Power         │
                      │  - Master–Follower     │
                      │  - SAFE MODE           │
-                     └────────────┬──────────┘
+                     └────────────┬───────────┘
                                   │
          ┌────────────────────────┼────────────────────────┐
          ▼                        ▼                        ▼
