@@ -1,0 +1,432 @@
+# ================================================================
+#  SOLAKON MASTER–FOLLOWER BLUEPRINT
+#  WHAT: 1–3 Solakon Inverter, Master–Follower, NT/HT, Safety First
+#  WHY:  Maximale Eigenverbrauchsquote, Batterieschutz, Stabilität
+#  HOW:  Phasenbasiert, SoC-basiert, Tariflogik, SAFE MODE
+# ================================================================
+
+blueprint:
+  name: "Solakon Master–Follower (1–3 inverters, NT/HT, safety first)"
+  description: >
+    Master–Follower control for 1–3 Solakon inverters with NT/HT tariff logic,
+    balanced SoC, phase-aware power, and full safety handling (SAFE MODE).
+  domain: automation
+  source_url: "https://github.com/yourname/solakon-master-follower-blueprint"
+
+  input:
+
+    # ───────────────────────────────────────────────
+    # 🔢 INVERTER COUNT
+    # WHAT: Number of Solakon inverters in the system.
+    # WHY: Enables logic for 1, 2 or 3 inverters (master + followers).
+    # HOW: Used to conditionally enable follower logic and safety checks.
+    # ICON: mdi:battery-multiple
+    # ───────────────────────────────────────────────
+    inverter_count:
+      name: Number of Solakon inverters
+      description: How many Solakon inverters do you have (1–3)?
+      icon: mdi:battery-multiple
+      default: 2
+      selector:
+        number:
+          min: 1
+          max: 3
+          step: 1
+          mode: slider
+
+    # ───────────────────────────────────────────────
+    # 🌐 SHELLY TOTAL GRID POWER
+    # WHAT: Total active power at the grid connection point.
+    # WHY: Decides if the house is importing (buying) or exporting (selling).
+    # HOW: Positive = import, negative = export; used for global charge/discharge.
+    # ICON: mdi:transmission-tower
+    # ───────────────────────────────────────────────
+    shelly_total_power:
+      name: Shelly – Total grid power
+      description: Total active power of the grid connection (positive = import, negative = export).
+      icon: mdi:transmission-tower
+      selector:
+        entity:
+          domain: sensor
+
+    # ───────────────────────────────────────────────
+    # ⚡ MASTER PHASE POWER
+    # WHAT: Phase power on the phase where the master inverter is connected.
+    # WHY: Shapes master charge/discharge power per phase to avoid overload.
+    # HOW: Positive = import, negative = export; used to size power (0–1200 W).
+    # ICON: mdi:flash
+    # ───────────────────────────────────────────────
+    master_phase_source:
+      name: Master – Shelly phase power sensor
+      description: Shelly phase sensor for the master inverter's phase (positive = import, negative = export).
+      icon: mdi:flash
+      selector:
+        entity:
+          domain: sensor
+
+    # ───────────────────────────────────────────────
+    # ⚡ FOLLOWER 1 PHASE POWER (OPTIONAL)
+    # WHAT: Phase power on follower 1’s phase.
+    # WHY: Allows follower 1 to charge/discharge based on its own phase load.
+    # HOW: Optional; if empty, follower 1 logic is disabled.
+    # ICON: mdi:flash
+    # ───────────────────────────────────────────────
+    follower1_phase_source:
+      name: Follower 1 – Shelly phase power sensor (optional)
+      description: Shelly phase sensor for follower 1's phase (leave empty if not used).
+      icon: mdi:flash
+      default: ""
+      selector:
+        entity:
+          domain: sensor
+          multiple: false
+          include_entities: []
+
+    # ───────────────────────────────────────────────
+    # ⚡ FOLLOWER 2 PHASE POWER (OPTIONAL)
+    # WHAT: Phase power on follower 2’s phase.
+    # WHY: Allows follower 2 to charge/discharge based on its own phase load.
+    # HOW: Optional; if empty, follower 2 logic is disabled.
+    # ICON: mdi:flash
+    # ───────────────────────────────────────────────
+    follower2_phase_source:
+      name: Follower 2 – Shelly phase power sensor (optional)
+      description: Shelly phase sensor for follower 2's phase (leave empty if not used).
+      icon: mdi:flash
+      default: ""
+      selector:
+        entity:
+          domain: sensor
+          multiple: false
+          include_entities: []
+
+    # ───────────────────────────────────────────────
+    # 🔋 MASTER SOC SENSOR
+    # WHAT: Battery state of charge of the master inverter.
+    # WHY: Drives global charge/discharge decisions and follower permissions.
+    # HOW: Clamped to 0–100 %, used for SoC window 20–90 % and safety.
+    # ICON: mdi:battery
+    # ───────────────────────────────────────────────
+    master_soc:
+      name: Master – SOC sensor
+      description: State of charge sensor for the master Solakon inverter.
+      icon: mdi:battery
+      selector:
+        entity:
+          domain: sensor
+
+    # ───────────────────────────────────────────────
+    # ▶ MASTER REMOTE CONTROL MODE
+    # WHAT: Remote control mode selector for the master inverter.
+    # WHY: Chooses between INV Charge/Discharge, Battery Charge/Discharge, AC First, etc.
+    # HOW: Set according to HT/NT and charge/discharge direction.
+    # ICON: mdi:play-circle
+    # ───────────────────────────────────────────────
+    master_mode:
+      name: Master – Remote control mode select
+      description: select.solakon_one_remote_control_mode for master.
+      icon: mdi:play-circle
+      selector:
+        entity:
+          domain: select
+
+    # ───────────────────────────────────────────────
+    # ⚡ MASTER ACTIVE POWER CONTROL
+    # WHAT: Remote active power command for the master inverter.
+    # WHY: Controls charge/discharge power (negative = charge, positive = discharge).
+    # HOW: Calculated from phase power, SoC, tariff and safety limits (0–1200 W).
+    # ICON: mdi:lightning-bolt
+    # ───────────────────────────────────────────────
+    master_power:
+      name: Master – Remote active power control
+      description: number.solakon_one_remote_active_power_control for master.
+      icon: mdi:lightning-bolt
+      selector:
+        entity:
+          domain: number
+
+    # ───────────────────────────────────────────────
+    # 🔻 MASTER MINIMUM SOC
+    # WHAT: Device-level minimum SoC for the master inverter.
+    # WHY: Protects battery from deep discharge.
+    # HOW: Set to 20 % by the automation each cycle.
+    # ICON: mdi:battery-minus
+    # ───────────────────────────────────────────────
+    master_min_soc:
+      name: Master – Minimum SoC control
+      description: number.solakon_one_minimum_soc_control for master.
+      icon: mdi:battery-minus
+      selector:
+        entity:
+          domain: number
+
+    # ───────────────────────────────────────────────
+    # 🔺 MASTER MAXIMUM SOC
+    # WHAT: Device-level maximum SoC for the master inverter.
+    # WHY: Protects battery from overcharge and keeps headroom.
+    # HOW: Set to 90 % by the automation each cycle.
+    # ICON: mdi:battery-plus
+    # ───────────────────────────────────────────────
+    master_max_soc:
+      name: Master – Maximum SoC control
+      description: number.solakon_one_maximum_soc_control for master.
+      icon: mdi:battery-plus
+      selector:
+        entity:
+          domain: number
+
+    # ───────────────────────────────────────────────
+    # 🔌 MASTER MIN SOC ON GRID
+    # WHAT: Minimum SoC when grid-connected.
+    # WHY: Ensures a reserve when grid is available.
+    # HOW: Set to 20 % by the automation each cycle.
+    # ICON: mdi:transmission-tower-export
+    # ───────────────────────────────────────────────
+    master_min_soc_ongrid:
+      name: Master – Minimum SoC OnGrid control
+      description: number.solakon_one_minimum_soc_ongrid_control for master.
+      icon: mdi:transmission-tower-export
+      selector:
+        entity:
+          domain: number
+
+    # ───────────────────────────────────────────────
+    # ⏱ MASTER REMOTE TIMEOUT
+    # WHAT: Remote control timeout for the master inverter.
+    # WHY: Prevents stale commands; keeps remote control active.
+    # HOW: Set to 60 seconds every cycle.
+    # ICON: mdi:timer-outline
+    # ───────────────────────────────────────────────
+    master_timeout:
+      name: Master – Remote timeout control
+      description: number.solakon_one_remote_timeout_control for master.
+      icon: mdi:timer-outline
+      selector:
+        entity:
+          domain: number
+
+    # ───────────────────────────────────────────────
+    # 🔋 FOLLOWER 1 SOC (OPTIONAL)
+    # WHAT: Battery state of charge of follower 1.
+    # WHY: Used for follower-specific SoC protection and balancing.
+    # HOW: Optional; if empty, follower 1 is ignored.
+    # ICON: mdi:battery
+    # ───────────────────────────────────────────────
+    follower1_soc:
+      name: Follower 1 – SOC sensor (optional)
+      description: SOC sensor for follower 1 (leave empty if not used).
+      icon: mdi:battery
+      default: ""
+      selector:
+        entity:
+          domain: sensor
+          multiple: false
+          include_entities: []
+
+    # ───────────────────────────────────────────────
+    # ▶ FOLLOWER 1 MODE (OPTIONAL)
+    # WHAT: Remote control mode selector for follower 1.
+    # WHY: Allows follower 1 to charge/discharge under master–follower rules.
+    # HOW: Optional; used only if follower 1 is configured.
+    # ICON: mdi:play-circle
+    # ───────────────────────────────────────────────
+    follower1_mode:
+      name: Follower 1 – Remote control mode select (optional)
+      description: select.solakon_one_remote_control_mode for follower 1.
+      icon: mdi:play-circle
+      default: ""
+      selector:
+        entity:
+          domain: select
+          multiple: false
+          include_entities: []
+
+    # ───────────────────────────────────────────────
+    # ⚡ FOLLOWER 1 POWER (OPTIONAL)
+    # WHAT: Remote active power command for follower 1.
+    # WHY: Controls follower 1 charge/discharge power.
+    # HOW: Optional; negative = charge, positive = discharge.
+    # ICON: mdi:lightning-bolt
+    # ───────────────────────────────────────────────
+    follower1_power:
+      name: Follower 1 – Remote active power control (optional)
+      description: number.solakon_one_remote_active_power_control for follower 1.
+      icon: mdi:lightning-bolt
+      default: ""
+      selector:
+        entity:
+          domain: number
+          multiple: false
+          include_entities: []
+
+    # ───────────────────────────────────────────────
+    # 🔻 FOLLOWER 1 MIN SOC (OPTIONAL)
+    # WHAT: Device-level minimum SoC for follower 1.
+    # WHY: Protects follower 1 battery from deep discharge.
+    # HOW: Set to 20 % by the automation if configured.
+    # ICON: mdi:battery-minus
+    # ───────────────────────────────────────────────
+    follower1_min_soc:
+      name: Follower 1 – Minimum SoC control (optional)
+      description: number.solakon_one_minimum_soc_control for follower 1.
+      icon: mdi:battery-minus
+      default: ""
+      selector:
+        entity:
+          domain: number
+          multiple: false
+          include_entities: []
+
+    # ───────────────────────────────────────────────
+    # 🔺 FOLLOWER 1 MAX SOC (OPTIONAL)
+    # WHAT: Device-level maximum SoC for follower 1.
+    # WHY: Protects follower 1 battery from overcharge.
+    # HOW: Set to 90 % by the automation if configured.
+    # ICON: mdi:battery-plus
+    # ───────────────────────────────────────────────
+    follower1_max_soc:
+      name: Follower 1 – Maximum SoC control (optional)
+      description: number.solakon_one_maximum_soc_control for follower 1.
+      icon: mdi:battery-plus
+      default: ""
+      selector:
+        entity:
+          domain: number
+          multiple: false
+          include_entities: []
+
+    # ───────────────────────────────────────────────
+    # 🔌 FOLLOWER 1 MIN SOC ON GRID (OPTIONAL)
+    # WHAT: Minimum SoC when grid-connected for follower 1.
+    # WHY: Ensures reserve on follower 1 when grid is available.
+    # HOW: Set to 20 % by the automation if configured.
+    # ICON: mdi:transmission-tower-export
+    # ───────────────────────────────────────────────
+    follower1_min_soc_ongrid:
+      name: Follower 1 – Minimum SoC OnGrid control (optional)
+      description: number.solakon_one_minimum_soc_ongrid_control for follower 1.
+      icon: mdi:transmission-tower-export
+      default: ""
+      selector:
+        entity:
+          domain: number
+          multiple: false
+          include_entities: []
+
+    # ───────────────────────────────────────────────
+    # ⏱ FOLLOWER 1 TIMEOUT (OPTIONAL)
+    # WHAT: Remote control timeout for follower 1.
+    # WHY: Keeps follower 1 under remote control with fresh commands.
+    # HOW: Set to 60 seconds if configured.
+    # ICON: mdi:timer-outline
+    # ───────────────────────────────────────────────
+    follower1_timeout:
+      name: Follower 1 – Remote timeout control (optional)
+      description: number.solakon_one_remote_timeout_control for follower 1.
+      icon: mdi:timer-outline
+      default: ""
+      selector:
+        entity:
+          domain: number
+          multiple: false
+          include_entities: []
+
+    # ───────────────────────────────────────────────
+    # 🔋 FOLLOWER 2 SOC (OPTIONAL)
+    # WHAT: Battery state of charge of follower 2.
+    # WHY: Used for follower 2 SoC protection and balancing.
+    # HOW: Optional; if empty, follower 2 is ignored.
+    # ICON: mdi:battery
+    # ───────────────────────────────────────────────
+    follower2_soc:
+      name: Follower 2 – SOC sensor (optional)
+      description: SOC sensor for follower 2 (leave empty if not used).
+      icon: mdi:battery
+      default: ""
+      selector:
+        entity:
+          domain: sensor
+          multiple: false
+          include_entities: []
+
+    # ───────────────────────────────────────────────
+    # ▶ FOLLOWER 2 MODE (OPTIONAL)
+    # WHAT: Remote control mode selector for follower 2.
+    # WHY: Allows follower 2 to charge/discharge under master–follower rules.
+    # HOW: Optional; used only if follower 2 is configured.
+    # ICON: mdi:play-circle
+    # ───────────────────────────────────────────────
+    follower2_mode:
+      name: Follower 2 – Remote control mode select (optional)
+      description: select.solakon_one_remote_control_mode for follower 2.
+      icon: mdi:play-circle
+      default: ""
+      selector:
+        entity:
+          domain: select
+          multiple: false
+          include_entities: []
+
+    # ───────────────────────────────────────────────
+    # ⚡ FOLLOWER 2 POWER (OPTIONAL)
+    # WHAT: Remote active power command for follower 2.
+    # WHY: Controls follower 2 charge/discharge power.
+    # HOW: Optional; negative = charge, positive = discharge.
+    # ICON: mdi:lightning-bolt
+    # ───────────────────────────────────────────────
+    follower2_power:
+      name: Follower 2 – Remote active power control (optional)
+      description: number.solakon_one_remote_active_power_control for follower 2.
+      icon: mdi:lightning-bolt
+      default: ""
+      selector:
+        entity:
+          domain: number
+          multiple: false
+          include_entities: []
+
+    # ───────────────────────────────────────────────
+    # 🔻 FOLLOWER 2 MIN SOC (OPTIONAL)
+    # WHAT: Device-level minimum SoC for follower 2.
+    # WHY: Protects follower 2 battery from deep discharge.
+    # HOW: Set to 20 % by the automation if configured.
+    # ICON: mdi:battery-minus
+    # ───────────────────────────────────────────────
+    follower2_min_soc:
+      name: Follower 2 – Minimum SoC control (optional)
+      description: number.solakon_one_minimum_soc_control for follower 2.
+      icon: mdi:battery-minus
+      default: ""
+      selector:
+        entity:
+          domain: number
+          multiple: false
+          include_entities: []
+
+    # ───────────────────────────────────────────────
+    # 🔺 FOLLOWER 2 MAX SOC (OPTIONAL)
+    # WHAT: Device-level maximum SoC for follower 2.
+    # WHY: Protects follower 2 battery from overcharge.
+    # HOW: Set to 90 % by the automation if configured.
+    # ICON: mdi:battery-plus
+    # ───────────────────────────────────────────────
+    follower2_max_soc:
+      name: Follower 2 – Maximum SoC control (optional)
+      description: number.solakon_one_maximum_soc_control for follower 2.
+      icon: mdi:battery-plus
+      default: ""
+      selector:
+        entity:
+          domain: number
+          multiple: false
+          include_entities: []
+
+    # ───────────────────────────────────────────────
+    # 🔌 FOLLOWER 2 MIN SOC ON GRID (OPTIONAL)
+    # WHAT: Minimum SoC when grid-connected for follower 2.
+    # WHY: Ensures reserve on follower 2 when grid is available.
+    # HOW: Set to 20 % by the automation if configured.
+    # ICON: mdi:transmission-tower-export
+    # ───────────────────────────────────────────────
+    follower2_min_soc_ongrid:
+      name: Follower 2 – Minimum SoC OnGrid control (optional)
