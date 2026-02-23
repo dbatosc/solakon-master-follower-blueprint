@@ -1,10 +1,5 @@
-# solakon-master-follower-blueprint
-solakon-master-follower-blueprint
 ⚡ Solakon Master–Follower Blueprint
 1–3 Solakon One Inverter · NT/HT Tariflogik · Phasenbasiert · SAFE MODE
-https://img.shields.io/badge/Home%20Assistant-Blueprint-41BDF5?style=for-the-badge
-https://img.shields.io/badge/Solakon-One-orange?style=for-the-badge
-https://img.shields.io/badge/Safety-First-green?style=for-the-badge
 
 🔍 Überblick
 Dieser Blueprint steuert 1–3 Solakon One Wechselrichter in einem intelligenten Master–Follower‑System:
@@ -22,6 +17,8 @@ SAFE MODE bei Sensorfehlern
 Keine Einspeisung, keine Überlastung, keine Oszillation
 
 Der Blueprint nutzt die offiziellen Solakon Remote‑Control‑Entities und ist vollständig kompatibel mit der Solakon One Integration.
+
+
 
 🎯 Ziele
 Maximale Eigenverbrauchsquote
