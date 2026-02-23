@@ -2,7 +2,8 @@
 1–3 Solakon One Inverter · NT/HT Tariflogik · Phasenbasiert · SAFE MODE
 
 📥 Blueprint direkt importieren
-Import Blueprint (my.home-assistant.io in Bing)
+Import Blueprint [(my.home-assistant.io in Bing)](https://raw.githubusercontent.com/dbatosc/solakon-master-follower-blueprint/main/blueprints/solakon/master_follower.yaml
+)
 
 🔍 Überblick
 Dieser Blueprint steuert 1–3 Solakon One Wechselrichter in einem intelligenten Master–Follower‑System:
