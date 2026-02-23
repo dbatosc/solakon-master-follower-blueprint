@@ -1,0 +1,39 @@
+# Home Assistant / Blueprint Repository
+.homeassistant/
+config/
+secrets.yaml
+*.db
+*.db-shm
+*.db-wal
+*.log
+*.log.*
+*.yaml.backup
+
+# Python (optional future scripts)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+env/
+venv/
+.venv/
+
+# VSCode / JetBrains
+.vscode/
+.idea/
+*.iml
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# Node / JS (falls später WebUI)
+node_modules/
+dist/
